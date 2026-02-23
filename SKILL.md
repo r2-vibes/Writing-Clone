@@ -69,19 +69,29 @@ When the user shares a Google Doc:
    - Output as JSON: `[[original_paragraph, rewritten_paragraph], ...]`
    - Save to `/tmp/edits.json`
 
-4. **Apply suggestions via browser automation:**
-   - Open the doc in Chrome (suggesting mode)
-   - Open Find & Replace dialog
-   - Run `scripts/batch-suggest.js` to apply all edits as inline tracked changes
+4. **Apply tracked suggestions via browser automation:**
+   - Open the doc in Chrome (`openclaw` browser profile)
+   - Switch to **Suggesting mode** (click the mode dropdown → "Suggesting")
+   - Open **Find & Replace** (⌘+Shift+H)
+   - Run `scripts/batch-suggest.js` — applies all edits as inline tracked changes
    - Each edit becomes a proper suggestion the user can accept/reject
 
-5. **Add comments via API:**
-   ```bash
-   gog docs comments add <DOC_ID> "comment text" --quoted "anchor text"
-   ```
-   Use for structural/strategic feedback that doesn't fit as text changes.
+5. **Add inline comments via browser (NOT the API):**
+   
+   The Google Docs comments API (`--quoted`) does NOT visually anchor comments to highlighted text. Use this browser-based method instead:
+   
+   For each comment:
+   1. Open Find & Replace (⌘+Shift+H)
+   2. Use the browser `type` action to type anchor text into the search field
+   3. Press Enter to find (highlights the text in the doc)
+   4. Close the Find & Replace dialog
+   5. Press ⌘+Option+M to open the comment dialog (anchored to the found text)
+   6. Use the browser `type` action on the comment draft textbox
+   7. Click the "Comment" button to submit
+   
+   **Critical:** Always use the browser `type` action, never raw CDP `insertText` — the latter types into the document body instead of the input field.
 
-6. **Notify the user** with a summary of what changed and why.
+6. **Verify and notify** — take a screenshot to confirm suggestions and comments are visible, then tell the user with a summary of changes.
 
 ### After Review: Learning Loop
 
@@ -156,13 +166,13 @@ skills/voice-editor/
 `scripts/batch-suggest.js` connects to Chrome via CDP (port 18800) and automates F&R:
 
 ```bash
-DOC_ID=<doc_id> node scripts/batch-suggest.js
+cd scripts && DOC_ID=<doc_id> node batch-suggest.js
 ```
 
 Requirements:
 - Chrome open to the doc in suggesting mode with F&R dialog open
 - `/tmp/edits.json` with `[[find_text, replace_text], ...]` pairs
-- `chrome-remote-interface` npm package installed (`cd /tmp && npm install chrome-remote-interface`)
+- `chrome-remote-interface` npm package (run `npm install` in scripts/ directory)
 
 Key technical notes:
 - F&R cannot match across paragraph breaks — split multi-paragraph edits into separate pairs
@@ -171,10 +181,21 @@ Key technical notes:
 - Wait 1.2s between edits for Google Docs to process
 - Press Enter after typing in the find field to trigger search
 
-### Comments via API
-```bash
-gog docs comments add <DOC_ID> "Your comment here" --quoted "text to anchor to"
-```
+### Inline Comments (Browser Method)
+
+**Do NOT use the Google Docs comments API** (`gog docs comments add --quoted`). It creates comments that exist in the API but do not visually anchor/highlight text in the document.
+
+Instead, use browser automation to add comments the same way a human would:
+
+1. **Find the anchor text** — Open F&R, type the text you want to comment on, press Enter to highlight it
+2. **Close F&R** — Click the X button to close the dialog (the highlight persists)
+3. **Open comment dialog** — Press ⌘+Option+M (the comment box opens anchored to the highlighted text)
+4. **Type the comment** — Use the browser `type` action on the comment draft textbox
+5. **Submit** — Click the "Comment" button
+
+This produces comments identical to what a human creates — text is highlighted in the document with the comment anchored in the sidebar.
+
+**Warning:** Never use raw CDP `Input.insertText` or `Input.dispatchKeyEvent` to type text in Google Docs. These methods type into the document body (the canvas), not into input fields like F&R or comment boxes. Always use the browser tool's `type` action which properly targets the input element by ref.
 
 ## Quality Standards
 
