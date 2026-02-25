@@ -1,4 +1,12 @@
 {
+  "name": "voice-editor-scripts",
+  "private": true,
+  "scripts": {
+    "batch-suggest": "node batch-suggest.js",
+    "preflight": "node preflight.js",
+    "preflight:strict": "node preflight.js --strict",
+    "test": "node --test"
+  },
   "dependencies": {
     "chrome-remote-interface": "^0.34.0"
   }
