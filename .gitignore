@@ -1,1 +1,5 @@
 node_modules/
+tmp/
+references/style-guide.md
+references/voice-profile.md
+references/correction-log.md

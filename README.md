@@ -1,94 +1,80 @@
-# Voice Editor
+# Voice Editor — OpenClaw Skill
 
-Give your agent writing samples (and interviews) so it can learn a writing voice, then edit Google Docs with tracked suggestions and inline comments.
+An AI editorial assistant that learns your writing voice and edits Google Docs with tracked suggestions (Google Docs "Suggesting" mode). Not a grammar checker. A full editorial partner that researches, restructures, and rewrites in YOUR voice.
 
-This skill is designed to be **operator-driven** (you keep control of document content and account access) and **privacy-safe by default** (local scripts, no hard-coded identities, no credential storage in repo).
+## What It Does
 
-## Prerequisites
-
-- Node.js 18+
-- Google Docs access through `gog` CLI (already authenticated)
-- Chrome running with remote debugging enabled on port `18800`
-- Target Google Doc open in Chrome
-- Generated edits file at `/tmp/edits.json` (or custom `EDITS_PATH`)
-
-Expected `edits.json` format:
-
-```json
-[
-  ["find this text", "replace with this text"],
-  ["another paragraph", "rewritten paragraph"]
-]
-```
+1. **Learns your voice** from published writing samples (articles, essays, newsletters)
+2. **Edits Google Docs** as paragraph-level tracked suggestions — the way a brilliant human editor would
+3. **Researches the subject matter** — adds specific names, dates, dollar figures, context
+4. **Improves over time** — learns from every correction
 
 ## Setup
 
+### Prerequisites
+- [OpenClaw](https://github.com/openclaw/openclaw) installed and running
+- Google Chrome (logged into Google)
+- [gog CLI](https://github.com/nextonhq/gog) for Google Workspace access
+- Node.js
+
+### Install
 ```bash
+# From your OpenClaw workspace
 cd skills/voice-editor/scripts
 npm install
 ```
 
-## Quickstart
+### First Run
+1. Tell your OpenClaw agent: "Learn my voice" and share 3-5 published writing samples
+2. The agent builds `references/style-guide.md` and `references/voice-profile.md`
+3. Review and confirm the profile feels right
 
-1. Generate paragraph rewrites and save them to `/tmp/edits.json`.
-2. Open the Google Doc in Chrome.
-3. Switch doc mode to **Suggesting**.
-4. Open **Find and replace** (`Cmd+Shift+H`).
-5. Run preflight:
+### Editorial Pass
+1. Open a Google Doc in Chrome
+2. Tell your agent: "Edit this doc" and share the link
+3. The agent pulls the text, researches the topics, generates edits, and applies them as tracked suggestions
+4. Review and accept/reject — the agent learns from your choices
 
-```bash
-DOC_ID=<google_doc_id> npm run preflight
+## How It Works
+
+The skill uses Chrome DevTools Protocol (CDP) to automate Google Docs' Find & Replace in Suggesting mode. This is the only reliable way to create tracked suggestions programmatically — the Google Docs API does not support creating suggestions.
+
+### Technical Architecture
+- `scripts/batch-suggest.js` — CDP automation (Suggesting mode, Find & Replace, Match Case, edit application)
+- `scripts/preflight.js` — Pre-run checks (Chrome running, CDP accessible, doc open, auth valid)
+- `scripts/preflight-lib.js` — Shared validation utilities
+
+### Why CDP + Find & Replace?
+
+Google Docs uses Google Closure UI, which swallows standard browser events. The script uses `Runtime.evaluate` with JS-level event dispatch (native value setters + MouseEvent dispatch) instead of CDP Input events. This is documented extensively in `batch-suggest.js`.
+
+## File Structure
+
+```
+voice-editor/
+├── SKILL.md                              # Agent instructions
+├── README.md                             # This file
+├── references/
+│   ├── style-guide.example.md            # Template — replaced with your style guide
+│   ├── voice-profile.example.md          # Template — replaced with your voice profile
+│   └── correction-log.md                 # Grows over time
+├── scripts/
+│   ├── batch-suggest.js                  # CDP automation
+│   ├── preflight.js                      # Connectivity checks
+│   ├── preflight-lib.js                  # Shared utilities
+│   └── package.json                      # Dependencies
+└── tmp/                                  # Generated edit files (gitignored)
 ```
 
-6. If preflight passes hard checks, run:
+## Editorial Philosophy
 
-```bash
-DOC_ID=<google_doc_id> npm run batch-suggest
-```
+This is not a proofreader. It is an editor that:
+- **Restructures paragraphs** — not just swaps words
+- **Adds value from research** — finds names, dates, figures the draft is missing
+- **Kills throat-clearing** — "It is worth noting" is deleted, not tweaked
+- **Makes moral stakes explicit** — if something matters, says so plainly
+- **Preserves and amplifies voice** — sharpens the writer's blade, doesn't replace it
 
-## Preflight checks
+## License
 
-`npm run preflight` validates:
-
-- `gog` is installed and auth appears available
-- Chrome CDP endpoint is reachable on `localhost:18800`
-- edits file exists and has valid JSON pair structure
-- (optional hints) doc tab readiness: suggesting mode + find/replace dialog
-
-Useful flags:
-
-- `--strict` → warnings also fail
-- `--json` → machine-readable output
-
-Examples:
-
-```bash
-DOC_ID=<id> EDITS_PATH=/tmp/edits.json npm run preflight -- --strict
-DOC_ID=<id> npm run preflight -- --json
-```
-
-## Common failure modes
-
-- **`Cannot reach Chrome CDP on localhost:18800`**
-  - Relaunch Chrome with `--remote-debugging-port=18800`.
-- **`missing edits file` or `invalid JSON`**
-  - Regenerate `edits.json`; ensure each item is exactly `[find, replace]`.
-- **`Could not connect to target doc tab via CDP`**
-  - Open the exact doc URL in Chrome and keep it active.
-- **Doc readiness warnings**
-  - Switch to Suggesting mode and reopen Find and replace.
-
-## Safety & privacy notes
-
-- No credentials are stored in this repo.
-- No personal account identifiers are hard-coded.
-- Scripts operate only on the currently open browser/doc context you provide.
-
-## Development
-
-Run tests (red/green TDD expected for new logic):
-
-```bash
-cd scripts
-npm test
-```
+MIT
